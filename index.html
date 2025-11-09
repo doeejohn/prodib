@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lecteur Musical Pro Cloud 🎵</title>
+<title>Lecteur Musical Cloud Pro 🎵</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <style>
 body { font-family: Arial; background:#1e1e1e; color:#fff; text-align:center; padding:20px;}
-input, button { margin:5px; padding:5px;}
+input, button { margin:5px; padding:5px; border-radius:5px; border:none;}
 audio { display:none; }
 ul { list-style:none; padding:0;}
 li { background:#333; margin:5px 0; padding:5px; border-radius:5px; cursor:pointer;}
@@ -15,7 +15,7 @@ li:hover { background:#555; }
 li.active { background:#ff6b6b; }
 .player-container { background:rgba(0,0,0,0.6); padding:20px; border-radius:15px; max-width:500px; margin:auto; }
 .controls { display:flex; justify-content:center; gap:10px; margin-bottom:10px; }
-button { background:#ff6b6b; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; transition:0.2s;}
+button { background:#ff6b6b; color:white; cursor:pointer; transition:0.2s;}
 button:hover { background:#ff4b4b; }
 .progress-container { width:100%; background:#555; border-radius:5px; cursor:pointer; height:8px; margin-bottom:10px;}
 .progress { background:#ff6b6b; height:100%; width:0%; border-radius:5px; transition:width 0.1s linear;}
@@ -24,7 +24,7 @@ button:hover { background:#ff4b4b; }
 </head>
 <body>
 
-<h1>Lecteur Musical Pro Cloud 🎵</h1>
+<h1>Lecteur Musical Cloud Pro 🎵</h1>
 
 <input type="file" id="fileInput" accept="audio/*">
 <button id="uploadBtn">Uploader</button>
@@ -51,12 +51,12 @@ button:hover { background:#ff4b4b; }
 <ul id="playlist"></ul>
 
 <script>
-// ⚡ Config Supabase
-const SUPABASE_URL = 'https://sfuiyxssdpejcntncggp.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmdWl5eHNzZHBlamNudG5jZ2dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2ODM5MjUsImV4cCI6MjA3ODI1OTkyNX0.Sv9PDiEdjA755eZ-4Te9Iwt9dScxQVUVvfkD1NWyZS8';
+// ===== CONFIG SUPABASE =====
+const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co'; // <-- Remplace
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';              // <-- Remplace
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ⚡ Éléments
+// ===== ÉLÉMENTS =====
 const fileInput = document.getElementById('fileInput');
 const uploadBtn = document.getElementById('uploadBtn');
 const playlist = document.getElementById('playlist');
@@ -80,71 +80,89 @@ let shuffle = false;
 let repeat = false;
 let audioCtx, analyser, source, dataArray;
 
-// ===== Playlist =====
+// ===== PLAYLIST =====
 async function refreshPlaylist(){
-    const { data } = await supabase.from('songs').select('*').order('uploaded_at', {ascending:false});
+    const { data, error } = await supabase.from('songs').select('*').order('uploaded_at',{ascending:false});
+    if(error){ console.error(error.message); return; }
     playlist.innerHTML = '';
     currentTracks = data;
-    data.forEach((song, index) => {
+    data.forEach((song, index)=>{
         const li = document.createElement('li');
         li.textContent = song.title;
-        li.onclick = () => playTrack(index);
+        li.onclick = ()=>playTrack(index);
         playlist.appendChild(li);
     });
 }
 
-// ===== Jouer un morceau =====
+// ===== LECTURE =====
 function playTrack(index){
     const song = currentTracks[index];
     if(!song) return;
     currentIndex = index;
+    currentTracks.forEach((_,i)=>playlist.children[i].classList.toggle('active', i===index));
     player.src = song.url;
     player.play();
-    isPlaying = true;
-    playPauseBtn.textContent = '⏸️';
-    currentTracks.forEach((_, i) => playlist.children[i].classList.toggle('active', i===index));
+    isPlaying=true;
+    playPauseBtn.textContent='⏸️';
     setupVisualizer();
 }
 
-// ===== Upload =====
-uploadBtn.addEventListener('click', async () => {
-    if(fileInput.files.length === 0){ alert('Choisis un fichier !'); return; }
+// ===== UPLOAD =====
+uploadBtn.addEventListener('click', async ()=>{
+    if(fileInput.files.length===0){ alert('Choisis un fichier !'); return; }
     const file = fileInput.files[0];
     const fileName = file.name;
-    const { data, error } = await supabase.storage.from('songs').upload(fileName, file, {upsert:true});
-    if(error){ alert(error.message); return; }
-    const { publicURL } = supabase.storage.from('songs').getPublicUrl(fileName);
-    await supabase.from('songs').insert([{ title:fileName, url:publicURL }]);
-    refreshPlaylist();
-    fileInput.value = '';
+    try{
+        // 1️⃣ Upload
+        const { data, error } = await supabase.storage.from('songs').upload(fileName, file, {upsert:true});
+        if(error) throw error;
+
+        // 2️⃣ URL publique
+        const { publicURL, error: urlError } = supabase.storage.from('songs').getPublicUrl(fileName);
+        if(urlError) throw urlError;
+
+        // 3️⃣ Ajouter dans table
+        const { data: insertData, error: insertError } = await supabase.from('songs').insert([{title:fileName,url:publicURL}]);
+        if(insertError) throw insertError;
+
+        alert('Fichier ajouté avec succès !');
+        fileInput.value='';
+        refreshPlaylist();
+    }catch(e){
+        console.error('Erreur upload:', e.message);
+        alert('Erreur upload : '+e.message);
+    }
 });
 
-// ===== Recherche par URL =====
-searchBtn.addEventListener('click', async () => {
-    const url = searchUrl.value;
+// ===== RECHERCHE =====
+searchBtn.addEventListener('click', async ()=>{
+    const url = searchUrl.value.trim();
     if(!url) return;
-    const { data } = await supabase.from('songs').select('*').eq('url', url);
-    if(data.length>0){ playTrack(currentTracks.indexOf(data[0])); }
-    else alert('Aucun résultat trouvé.');
+    const { data, error } = await supabase.from('songs').select('*').eq('url',url);
+    if(error){ alert(error.message); return; }
+    if(data.length>0){
+        const index = currentTracks.findIndex(s=>s.url===url);
+        if(index!==-1) playTrack(index);
+    }else{ alert('Aucun résultat trouvé'); }
 });
 
-// ===== Contrôles =====
+// ===== CONTRÔLES =====
 playPauseBtn.addEventListener('click', ()=>{
-    if(isPlaying){ player.pause(); playPauseBtn.textContent='▶️'; }
+    if(isPlaying){ player.pause(); playPauseBtn.textContent='▶️'; } 
     else { player.play(); playPauseBtn.textContent='⏸️'; }
     isPlaying=!isPlaying;
 });
 nextBtn.addEventListener('click', nextTrack);
 prevBtn.addEventListener('click', ()=>{
-    currentIndex = (currentIndex-1+currentTracks.length)%currentTracks.length;
+    currentIndex=(currentIndex-1+currentTracks.length)%currentTracks.length;
     playTrack(currentIndex);
 });
-shuffleBtn.addEventListener('click', ()=> shuffle=!shuffle);
-repeatBtn.addEventListener('click', ()=> repeat=!repeat);
+shuffleBtn.addEventListener('click', ()=>shuffle=!shuffle);
+repeatBtn.addEventListener('click', ()=>repeat=!repeat);
 
 function nextTrack(){
-    if(shuffle) currentIndex = Math.floor(Math.random()*currentTracks.length);
-    else currentIndex = (currentIndex+1)%currentTracks.length;
+    if(shuffle) currentIndex=Math.floor(Math.random()*currentTracks.length);
+    else currentIndex=(currentIndex+1)%currentTracks.length;
     playTrack(currentIndex);
 }
 
@@ -153,17 +171,17 @@ player.addEventListener('ended', ()=>{
     else nextTrack();
 });
 
-// ===== Progress bar =====
+// ===== PROGRESS BAR =====
 player.addEventListener('timeupdate', ()=>{
     if(player.duration) progress.style.width=(player.currentTime/player.duration)*100+'%';
 });
 progressContainer.addEventListener('click', e=>{
-    const width = progressContainer.clientWidth;
-    const clickX = e.offsetX;
-    player.currentTime = (clickX/width)*player.duration;
+    const width=progressContainer.clientWidth;
+    const clickX=e.offsetX;
+    player.currentTime=(clickX/width)*player.duration;
 });
 
-// ===== Visualizer =====
+// ===== VISUALISER =====
 function setupVisualizer(){
     if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     if(source) source.disconnect();
@@ -172,7 +190,7 @@ function setupVisualizer(){
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
     analyser.fftSize=256;
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    dataArray=new Uint8Array(analyser.frequencyBinCount);
     drawVisualizer();
 }
 
@@ -181,9 +199,9 @@ function drawVisualizer(){
     if(!analyser) return;
     analyser.getByteFrequencyData(dataArray);
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    const barWidth = (canvas.width/dataArray.length);
+    const barWidth = canvas.width/dataArray.length;
     dataArray.forEach((value,i)=>{
-        const barHeight = value/2;
+        const barHeight=value/2;
         ctx.fillStyle=`rgb(${value+100},50,${255-value})`;
         ctx.fillRect(i*barWidth, canvas.height-barHeight, barWidth, barHeight);
     });
@@ -196,12 +214,14 @@ window.addEventListener('resize', ()=>{
 canvas.width=canvas.clientWidth;
 canvas.height=canvas.clientHeight;
 
-// ===== Service Worker =====
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then(()=>console.log('SW enregistré'));
+// ===== SERVICE WORKER =====
+if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').then(()=>console.log('SW enregistré'));
+}
 
-// ===== Initialisation =====
+// ===== INIT =====
 refreshPlaylist();
-
 </script>
+
 </body>
 </html>
