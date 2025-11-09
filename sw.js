@@ -1,7 +1,7 @@
-const CACHE_NAME = 'music-pro-cache-v1';
-self.addEventListener('install', e=>self.skipWaiting());
-self.addEventListener('activate', e=>e.waitUntil(self.clients.claim()));
-self.addEventListener('fetch', e=>{
+const CACHE_NAME='music-cloud-cache-v1';
+self.addEventListener('install',e=>self.skipWaiting());
+self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
+self.addEventListener('fetch',e=>{
     const url=e.request.url;
     if(url.endsWith('.mp3')||url.endsWith('.wav')||url.endsWith('.ogg')){
         e.respondWith(
