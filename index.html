@@ -3,143 +3,39 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lecteur Musical Pro 🎵</title>
+<title>Lecteur Musical Pro Cloud 🎵</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <style>
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-    min-height: 100vh;
-    transition: background 1s ease;
-}
-
-h1 {
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-#fileInput {
-    margin-bottom: 20px;
-}
-
-.player-container {
-    background: rgba(0,0,0,0.6);
-    padding: 20px;
-    border-radius: 15px;
-    max-width: 500px;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-audio {
-    width: 100%;
-    display: none; /* on n’utilise pas l’audio natif visible */
-}
-
-.controls {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-}
-
-button {
-    background: #ff6b6b;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: 0.2s;
-}
-
-button:hover {
-    background: #ff4b4b;
-}
-
-.progress-container {
-    width: 100%;
-    background: #555;
-    border-radius: 5px;
-    cursor: pointer;
-    height: 8px;
-}
-
-.progress {
-    background: #ff6b6b;
-    height: 100%;
-    width: 0%;
-    border-radius: 5px;
-    transition: width 0.1s linear;
-}
-
-.volume-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.volume-container input[type="range"] {
-    flex: 1;
-}
-
-#timeDisplay {
-    text-align: center;
-    font-size: 14px;
-}
-
-ul {
-    list-style: none;
-    padding: 0;
-    width: 100%;
-    max-width: 500px;
-    margin-top: 10px;
-}
-
-li {
-    background: rgba(255,255,255,0.1);
-    margin: 5px 0;
-    padding: 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: 0.2s;
-}
-
-li:hover {
-    background: rgba(255,255,255,0.2);
-}
-
-li.active {
-    background: #ff6b6b;
-}
-
-#visualizer {
-    width: 100%;
-    height: 50px;
-    background: rgba(0,0,0,0.3);
-    border-radius: 5px;
-}
+body { font-family: Arial; background:#1e1e1e; color:#fff; text-align:center; padding:20px;}
+input, button { margin:5px; padding:5px;}
+audio { display:none; }
+ul { list-style:none; padding:0;}
+li { background:#333; margin:5px 0; padding:5px; border-radius:5px; cursor:pointer;}
+li:hover { background:#555; }
+li.active { background:#ff6b6b; }
+.player-container { background:rgba(0,0,0,0.6); padding:20px; border-radius:15px; max-width:500px; margin:auto; }
+.controls { display:flex; justify-content:center; gap:10px; margin-bottom:10px; }
+button { background:#ff6b6b; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; transition:0.2s;}
+button:hover { background:#ff4b4b; }
+.progress-container { width:100%; background:#555; border-radius:5px; cursor:pointer; height:8px; margin-bottom:10px;}
+.progress { background:#ff6b6b; height:100%; width:0%; border-radius:5px; transition:width 0.1s linear;}
+#visualizer { width:100%; height:50px; background:rgba(0,0,0,0.3); border-radius:5px; margin-bottom:10px;}
 </style>
 </head>
 <body>
 
-<h1>Lecteur Musical Pro 🎵</h1>
+<h1>Lecteur Musical Pro Cloud 🎵</h1>
 
-<input type="file" id="fileInput" accept="audio/*" multiple>
+<input type="file" id="fileInput" accept="audio/*">
+<button id="uploadBtn">Uploader</button>
+<br><br>
+
+<input type="text" id="searchUrl" placeholder="Rechercher par URL">
+<button id="searchBtn">Rechercher</button>
 
 <div class="player-container">
     <audio id="player"></audio>
-
     <canvas id="visualizer"></canvas>
-
     <div class="controls">
         <button id="prev">⏮️</button>
         <button id="playPause">▶️</button>
@@ -147,26 +43,26 @@ li.active {
         <button id="shuffle">🔀</button>
         <button id="repeat">🔁</button>
     </div>
-
     <div class="progress-container" id="progressContainer">
         <div class="progress" id="progress"></div>
-    </div>
-
-    <div id="timeDisplay">00:00 / 00:00</div>
-
-    <div class="volume-container">
-        <label for="volume">🔊</label>
-        <input type="range" id="volume" min="0" max="1" step="0.01" value="1">
-        <button id="mute">🔇</button>
     </div>
 </div>
 
 <ul id="playlist"></ul>
 
 <script>
+// ⚡ Config Supabase
+const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ⚡ Éléments
 const fileInput = document.getElementById('fileInput');
-const player = document.getElementById('player');
+const uploadBtn = document.getElementById('uploadBtn');
 const playlist = document.getElementById('playlist');
+const player = document.getElementById('player');
+const searchBtn = document.getElementById('searchBtn');
+const searchUrl = document.getElementById('searchUrl');
 const playPauseBtn = document.getElementById('playPause');
 const nextBtn = document.getElementById('next');
 const prevBtn = document.getElementById('prev');
@@ -174,154 +70,108 @@ const shuffleBtn = document.getElementById('shuffle');
 const repeatBtn = document.getElementById('repeat');
 const progress = document.getElementById('progress');
 const progressContainer = document.getElementById('progressContainer');
-const volumeSlider = document.getElementById('volume');
-const muteBtn = document.getElementById('mute');
-const timeDisplay = document.getElementById('timeDisplay');
 const canvas = document.getElementById('visualizer');
 const ctx = canvas.getContext('2d');
 
-let tracks = [];
+let currentTracks = [];
 let currentIndex = 0;
 let isPlaying = false;
-let lastVolume = 1;
 let shuffle = false;
 let repeat = false;
-
 let audioCtx, analyser, source, dataArray;
 
-fileInput.addEventListener('change', e => {
-    tracks = Array.from(e.target.files);
-    displayPlaylist();
-    if(tracks.length > 0) playTrack(0);
-});
-
-function displayPlaylist(){
+// ===== Playlist =====
+async function refreshPlaylist(){
+    const { data } = await supabase.from('songs').select('*').order('uploaded_at', {ascending:false});
     playlist.innerHTML = '';
-    tracks.forEach((track, index) => {
+    currentTracks = data;
+    data.forEach((song, index) => {
         const li = document.createElement('li');
-        li.textContent = track.name;
+        li.textContent = song.title;
         li.onclick = () => playTrack(index);
-
-        const downloadBtn = document.createElement('button');
-        downloadBtn.textContent = '⬇️';
-        downloadBtn.onclick = e => {
-            e.stopPropagation();
-            const url = URL.createObjectURL(track);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = track.name;
-            a.click();
-        };
-        li.appendChild(downloadBtn);
         playlist.appendChild(li);
     });
-    highlightCurrentTrack();
 }
 
+// ===== Jouer un morceau =====
 function playTrack(index){
-    if(index < 0 || index >= tracks.length) return;
+    const song = currentTracks[index];
+    if(!song) return;
     currentIndex = index;
-    player.src = URL.createObjectURL(tracks[index]);
+    player.src = song.url;
     player.play();
     isPlaying = true;
     playPauseBtn.textContent = '⏸️';
-    highlightCurrentTrack();
+    currentTracks.forEach((_, i) => playlist.children[i].classList.toggle('active', i===index));
     setupVisualizer();
 }
 
-function highlightCurrentTrack(){
-    Array.from(playlist.children).forEach((li, idx) => {
-        li.classList.toggle('active', idx === currentIndex);
-    });
-}
-
-playPauseBtn.addEventListener('click', () => {
-    if(isPlaying){
-        player.pause();
-        playPauseBtn.textContent = '▶️';
-    } else {
-        player.play();
-        playPauseBtn.textContent = '⏸️';
-    }
-    isPlaying = !isPlaying;
+// ===== Upload =====
+uploadBtn.addEventListener('click', async () => {
+    if(fileInput.files.length === 0){ alert('Choisis un fichier !'); return; }
+    const file = fileInput.files[0];
+    const fileName = file.name;
+    const { data, error } = await supabase.storage.from('songs').upload(fileName, file, {upsert:true});
+    if(error){ alert(error.message); return; }
+    const { publicURL } = supabase.storage.from('songs').getPublicUrl(fileName);
+    await supabase.from('songs').insert([{ title:fileName, url:publicURL }]);
+    refreshPlaylist();
+    fileInput.value = '';
 });
 
-nextBtn.addEventListener('click', () => {
-    nextTrack();
+// ===== Recherche par URL =====
+searchBtn.addEventListener('click', async () => {
+    const url = searchUrl.value;
+    if(!url) return;
+    const { data } = await supabase.from('songs').select('*').eq('url', url);
+    if(data.length>0){ playTrack(currentTracks.indexOf(data[0])); }
+    else alert('Aucun résultat trouvé.');
 });
 
-prevBtn.addEventListener('click', () => {
-    currentIndex = (currentIndex - 1 + tracks.length) % tracks.length;
+// ===== Contrôles =====
+playPauseBtn.addEventListener('click', ()=>{
+    if(isPlaying){ player.pause(); playPauseBtn.textContent='▶️'; }
+    else { player.play(); playPauseBtn.textContent='⏸️'; }
+    isPlaying=!isPlaying;
+});
+nextBtn.addEventListener('click', nextTrack);
+prevBtn.addEventListener('click', ()=>{
+    currentIndex = (currentIndex-1+currentTracks.length)%currentTracks.length;
     playTrack(currentIndex);
 });
-
-shuffleBtn.addEventListener('click', () => shuffle = !shuffle);
-repeatBtn.addEventListener('click', () => repeat = !repeat);
+shuffleBtn.addEventListener('click', ()=> shuffle=!shuffle);
+repeatBtn.addEventListener('click', ()=> repeat=!repeat);
 
 function nextTrack(){
-    if(shuffle){
-        currentIndex = Math.floor(Math.random() * tracks.length);
-    } else {
-        currentIndex = (currentIndex + 1) % tracks.length;
-    }
+    if(shuffle) currentIndex = Math.floor(Math.random()*currentTracks.length);
+    else currentIndex = (currentIndex+1)%currentTracks.length;
     playTrack(currentIndex);
 }
 
-player.addEventListener('timeupdate', () => {
-    if(player.duration){
-        const percent = (player.currentTime / player.duration) * 100;
-        progress.style.width = percent + '%';
-        timeDisplay.textContent = formatTime(player.currentTime) + ' / ' + formatTime(player.duration);
-    }
+player.addEventListener('ended', ()=>{
+    if(repeat) playTrack(currentIndex);
+    else nextTrack();
 });
 
-function formatTime(time){
-    const m = Math.floor(time / 60).toString().padStart(2,'0');
-    const s = Math.floor(time % 60).toString().padStart(2,'0');
-    return `${m}:${s}`;
-}
-
-progressContainer.addEventListener('click', e => {
+// ===== Progress bar =====
+player.addEventListener('timeupdate', ()=>{
+    if(player.duration) progress.style.width=(player.currentTime/player.duration)*100+'%';
+});
+progressContainer.addEventListener('click', e=>{
     const width = progressContainer.clientWidth;
     const clickX = e.offsetX;
-    player.currentTime = (clickX / width) * player.duration;
+    player.currentTime = (clickX/width)*player.duration;
 });
 
-volumeSlider.addEventListener('input', e => {
-    player.volume = e.target.value;
-    lastVolume = e.target.value;
-});
-
-muteBtn.addEventListener('click', () => {
-    if(player.volume > 0){
-        lastVolume = player.volume;
-        player.volume = 0;
-        volumeSlider.value = 0;
-    } else {
-        player.volume = lastVolume;
-        volumeSlider.value = lastVolume;
-    }
-});
-
-player.addEventListener('ended', () => {
-    if(repeat){
-        playTrack(currentIndex);
-    } else {
-        nextTrack();
-    }
-});
-
-// ====== Visualizer ======
+// ===== Visualizer =====
 function setupVisualizer(){
-    if(!audioCtx){
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     if(source) source.disconnect();
     source = audioCtx.createMediaElementSource(player);
     analyser = audioCtx.createAnalyser();
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
-    analyser.fftSize = 256;
+    analyser.fftSize=256;
     dataArray = new Uint8Array(analyser.frequencyBinCount);
     drawVisualizer();
 }
@@ -331,20 +181,26 @@ function drawVisualizer(){
     if(!analyser) return;
     analyser.getByteFrequencyData(dataArray);
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    const barWidth = (canvas.width / dataArray.length);
-    dataArray.forEach((value, i) => {
-        const barHeight = value / 2;
-        ctx.fillStyle = `rgb(${value+100},50,${255-value})`;
-        ctx.fillRect(i*barWidth, canvas.height - barHeight, barWidth, barHeight);
+    const barWidth = (canvas.width/dataArray.length);
+    dataArray.forEach((value,i)=>{
+        const barHeight = value/2;
+        ctx.fillStyle=`rgb(${value+100},50,${255-value})`;
+        ctx.fillRect(i*barWidth, canvas.height-barHeight, barWidth, barHeight);
     });
 }
 
-window.addEventListener('resize', () => {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+window.addEventListener('resize', ()=>{
+    canvas.width=canvas.clientWidth;
+    canvas.height=canvas.clientHeight;
 });
-canvas.width = canvas.clientWidth;
-canvas.height = canvas.clientHeight;
+canvas.width=canvas.clientWidth;
+canvas.height=canvas.clientHeight;
+
+// ===== Service Worker =====
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then(()=>console.log('SW enregistré'));
+
+// ===== Initialisation =====
+refreshPlaylist();
 
 </script>
 </body>
